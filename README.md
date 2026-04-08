@@ -8,7 +8,7 @@ By default, saved reports and evidence are sanitized to omit machine-specific id
 
 ## CLI Preview
 
-![CLI menu](screenshots/menu.png)
+![CLI menu](screenshots/menu.svg)
 
 ## Main Usage
 
