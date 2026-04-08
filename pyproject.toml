@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gaming-readiness-audit"
+version = "0.1.0"
+description = "Facts-only Windows gaming system audit with a Rich CLI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "rich>=14.3.3",
+]
+
+[project.scripts]
+gaming-audit = "gaming_audit.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,7 @@
+reports/
+snapshots/
+evidence/
+src/gaming_readiness_audit.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
