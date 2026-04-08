@@ -46,10 +46,6 @@ The goal is faster, safer context gathering - not automated decision-making.
 
 ![Full Audit](screenshots/full-audit.svg)
 
-### Recent Reports
-
-![Recent Reports](screenshots/recent-reports.svg)
-
 Rich-generated SVG screenshots are the canonical preview assets.
 
 ## Installation
@@ -207,3 +203,4 @@ SVG screenshots are the canonical presentation assets.
 ## GitHub description
 
 Privacy-aware Windows gaming audit CLI with sanitized reports, live telemetry, and evidence capture.
+
