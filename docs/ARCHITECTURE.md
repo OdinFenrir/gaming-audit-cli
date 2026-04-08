@@ -162,11 +162,10 @@ flowchart TD
     Report --> Saved["Saved TXT and JSON Reports"]
     Sources --> Evidence["Evidence Artifacts"]
 
-    subgraph Privacy["Privacy Boundary for Shareable Artifacts"]
-        Normalization
-        Report
-        Saved
-    end
+    PrivacyNote["Privacy boundary applies to normalized reports and saved output"]
+    PrivacyNote -.-> Normalization
+    PrivacyNote -.-> Report
+    PrivacyNote -.-> Saved
 ```
 
 ## Change Safely
@@ -195,3 +194,4 @@ collect -> normalize -> sanitize -> report -> persist
 Its architecture prioritizes reproducibility, explicit data flow, and controlled exposure of system information.
 
 It is intentionally not an optimization system. It is a context collection and reporting system.
+
