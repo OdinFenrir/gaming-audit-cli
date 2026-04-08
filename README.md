@@ -6,6 +6,10 @@ It is read-only. It does not change drivers, settings, or hardware values.
 
 By default, saved reports and evidence are sanitized to omit machine-specific identifiers that are not needed for gaming analysis, including machine name, MAC address, disk serial numbers, and CPU processor ID.
 
+## CLI Preview
+
+![CLI menu](screenshots/menu.png)
+
 ## Main Usage
 
 From the project root:
@@ -119,4 +123,5 @@ Then confirm only source files, tests, and documentation are staged.
 python -m unittest discover -s tests -v
 python -m compileall src tests
 ```
+
 
