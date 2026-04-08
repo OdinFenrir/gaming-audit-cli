@@ -42,7 +42,9 @@ The goal is faster, safer context gathering - not automated decision-making.
 
 ![CLI Menu](screenshots/menu.svg)
 
-### Recent Reports`r`n`r`n![Recent Reports](screenshots/recent-reports.svg)
+### Recent Reports
+
+![Recent Reports](screenshots/recent-reports.svg)
 
 Rich-generated SVG screenshots are the canonical preview assets.
 
@@ -198,8 +200,13 @@ Recommended workflow:
 
 SVG screenshots are the canonical presentation assets.
 
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an engineering overview of the runtime pipeline, normalization, sanitization, and saved output flow.
+
 ## GitHub description
 
 Privacy-aware Windows gaming audit CLI with sanitized reports, live telemetry, and evidence capture.
+
 
 
