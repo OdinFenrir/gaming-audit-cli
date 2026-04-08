@@ -269,6 +269,8 @@ Windows PNG screenshots captured from the current executable are the canonical p
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an engineering overview of the runtime pipeline, normalization, sanitization, and saved output flow.
 
+For automation or AI-driven execution, see [AI_BOOTSTRAP.md](AI_BOOTSTRAP.md) for the exact full-diagnosis command flow and output locations.
+
 ## GitHub description
 
 Privacy-aware Windows gaming audit CLI with sanitized reports, live telemetry, and evidence capture.
