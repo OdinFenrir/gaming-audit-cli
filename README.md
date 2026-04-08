@@ -1,127 +1,201 @@
 # PC Gaming System Audit
 
-This project collects raw Windows gaming-related system facts and presents them through a Rich CLI, a TXT report, a JSON report, and per-run evidence artifacts.
+A privacy-aware Windows CLI that captures gaming-relevant system facts, telemetry, and per-run evidence.
 
-It is read-only. It does not change drivers, settings, or hardware values.
+This tool is read-only. It does not modify drivers, registry values, power plans, or game settings.
 
-By default, saved reports and evidence are sanitized to omit machine-specific identifiers that are not needed for gaming analysis, including machine name, MAC address, disk serial numbers, and CPU processor ID.
+This tool collects and reports system context only. It does not apply optimizations or change configuration.
+
+## What this demonstrates
+
+- Rich CLI design (structured terminal UI)
+- multi-source Windows system inspection
+- normalized TXT and JSON reporting
+- privacy-aware sanitization of saved output
+- evidence-oriented diagnostics
+- test-backed validation and iteration
+
+## Design principles
+
+- read-only by default
+- collect only what is useful for gaming diagnostics
+- sanitize saved outputs to reduce unnecessary exposure
+- prefer structured, reproducible outputs over ad-hoc logs
+- keep CLI interaction simple and explicit
+
+## Why this exists
+
+PC game setup and troubleshooting often start with the same repetitive questions:
+
+- What hardware is this machine actually using?
+- What display mode is active?
+- Which drivers and monitoring tools are installed?
+- Can the output be shared without exposing unnecessary identifiers?
+
+AI-assisted tuning also works better when the machine context is structured instead of pasted from raw system dumps.
+
+The goal is faster, safer context gathering - not automated decision-making.
 
 ## CLI Preview
 
 ![CLI menu](screenshots/menu.svg)
 
-## Main Usage
+Rich-generated SVG screenshots are the canonical preview assets.
 
-From the project root:
+## Installation
+
+```powershell
+git clone https://github.com/OdinFenrir/gaming-audit-cli
+cd gaming-audit-cli
+python -m pip install -e .
+```
+
+## Quick Start
+
+### Primary usage
+
+Run the interactive menu:
 
 ```powershell
 python run_audit.py
 ```
 
-That opens the numbered Rich menu.
-
-Direct commands are also available:
+Run a full saved audit:
 
 ```powershell
 python run_audit.py audit full
-python run_audit.py audit section telemetry
-python run_audit.py reports list --limit 5
-python run_audit.py reports latest --format txt
-python run_audit.py reports show 20260407_225212 --format json
-python run_audit.py evidence list --latest
-python run_audit.py diagnostics
 ```
 
-## Installed Entry Points
+### Optional (installed entrypoint)
 
 After an editable install:
 
 ```powershell
-python -m pip install -e .
-python -m gaming_audit audit full
-gaming-audit reports list --limit 5
+gaming-audit audit full
 ```
 
-`python -m gaming_audit` and `gaming-audit` use the current working directory as the audit project root.
+## Example Commands
 
-If `gaming-audit` is not recognized on Windows, add your Python user Scripts directory to `PATH`, or run the installed launcher directly:
+### Primary usage
 
 ```powershell
-& "$env:APPDATA\Python\Python314\Scripts\gaming-audit.exe" reports list --limit 5
+python run_audit.py audit full
+python run_audit.py audit section system
+python run_audit.py audit section graphics
+python run_audit.py audit section displays
+python run_audit.py audit section storage
+python run_audit.py audit section settings
+python run_audit.py audit section tools
+python run_audit.py audit section proc-svc
+python run_audit.py audit section telemetry
+python run_audit.py reports list --limit 8
+python run_audit.py reports latest --format txt
+python run_audit.py evidence list --latest
+python run_audit.py diagnostics
 ```
 
-## What It Collects
+### Optional (installed entrypoint)
 
-- Windows version and machine details
+```powershell
+gaming-audit audit full
+gaming-audit reports list --limit 8
+```
+
+## What it collects
+
+- Windows version, build number, architecture, and last boot time
 - CPU, RAM, and pagefile facts
-- GPU, driver, DirectX, and WDDM facts
-- connected displays and active display modes
-- storage device and volume facts
-- Game DVR, Game Mode, and power plan facts
-- performance-tool inventory and process state
-- service state for relevant gaming/performance services
+- GPU, driver version, DirectX, and WDDM facts
+- display models, active resolution, refresh rate, HDR support, and output type
+- storage model, size, bus type, health status, and firmware version
+- Game DVR, Game Mode, and power-plan facts
+- performance tool inventory
+- relevant helper process and service state
 - live telemetry from `nvidia-smi`
-- optional MSI Afterburner shared-memory telemetry when available
+- optional MSI Afterburner shared-memory telemetry
 - saved report history and per-run evidence artifacts
-- explicit source diagnostics with command, return code, error text, and artifact path
+- source diagnostics including command, return code, error text, and artifact path
 
-## Output Locations
+Saved reports are sanitized by default.
 
-Full audits save to:
+## Default sanitization
 
-- `reports\txt\system_audit_<timestamp>.txt`
-- `reports\json\system_audit_<timestamp>.json`
-- `snapshots\latest.json`
-- `evidence\<timestamp>\`
+Saved outputs intentionally remove or mask identifiers that are not needed for gaming diagnostics.
 
-Section views and diagnostics are read-only terminal views and do not create saved runs.
-
-## Repository Hygiene
-
-The source code is safe to version normally, but the generated runtime output is machine-specific and should stay out of Git:
-
-- `reports/`
-- `snapshots/`
-- `evidence/`
-- `src/gaming_readiness_audit.egg-info/`
-- `__pycache__/`
-
-Those folders can contain:
+Redacted or masked values include:
 
 - machine name
-- installed software inventory
-- service and process names
-- display models and resolutions
-- disk models, serial numbers, and volume labels
-- network adapter names, MAC addresses, and ping samples
-- saved raw command output from `dxdiag`, `nvidia-smi`, registry queries, and WMI-backed collectors
+- MAC address
+- disk serial numbers
+- CPU processor ID
+- volume GUID paths
+- user-specific paths such as `C:\Users\[redacted]\...`
+- software install paths
+- process executable paths
+- power-plan GUIDs such as `[redacted-guid]`
+- DxDiag machine name and machine ID
 
-If you publish this project, commit the source tree and tests, but do not commit generated reports or evidence artifacts from your own PC.
+Sanitization preserves diagnostic usefulness while removing common sources of system fingerprinting.
 
-## Sharing Safely
+## Example sanitized output
 
-Before pushing to GitHub or sharing a zip of the repo, check that you are not including:
+```text
+Overview
+--------
+CPU               : AMD Ryzen 7 5800X3D 8-Core Processor
+GPU               : NVIDIA GeForce RTX 3070
+Primary Display   : XB271HU | 2560 x 1440 | 165 Hz
 
-- `reports/json/system_audit_*.json`
-- `reports/txt/system_audit_*.txt`
-- `snapshots/latest.json`
-- anything under `evidence/*`
+Gaming Settings
+---------------
+Active Power Plan : Power Scheme GUID: [redacted-guid] (Ultimate Performance)
 
-These files are useful locally, but they expose detailed hardware and software facts about your machine.
-
-Recommended local workflow:
-
-```powershell
-git status --ignored
+Metadata
+--------
+Project Root      : C:\Users\[redacted]\Desktop\gaming-audit-cli
 ```
 
-Then confirm only source files, tests, and documentation are staged.
+## Limitations
+
+- Windows-focused
+- read-only by design
+- telemetry depends on available tools such as `nvidia-smi` and MSI Afterburner
+- not an optimizer or auto-config tool
+- intended as a baseline/context tool, not a final tuning solution
 
 ## Tests
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m unittest tests.test_normalizers tests.test_services tests.test_reporters tests.test_rich_rendering -v
 python -m compileall src tests
 ```
 
+## Privacy and sharing
 
+Saved reports are sanitized by default.
+
+Evidence artifacts may still contain raw command output and should be reviewed before sharing.
+
+Sanitization reduces exposure but does not guarantee anonymity.
+
+The repository ignores generated runtime output by default:
+
+- `reports/`
+- `snapshots/`
+- `evidence/`
+
+Recommended workflow:
+
+- share sanitized TXT or JSON reports when you need machine context for debugging
+- review evidence artifacts before sharing them
+- keep local runtime outputs out of Git
+
+## Screenshot policy
+
+SVG screenshots are the canonical presentation assets.
+
+Fallback PNG/HTML files, if present, are helper artifacts only.
+
+## GitHub description
+
+Privacy-aware Windows gaming audit CLI with sanitized reports, live telemetry, and evidence capture.
