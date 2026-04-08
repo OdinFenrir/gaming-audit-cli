@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Callable
 
 from ..constants import (
@@ -17,6 +17,7 @@ from ..constants import (
     SCOPE_SERVICES,
     SCOPE_SETTINGS,
     SCOPE_STORAGE,
+    SCOPE_SUMMARY,
     SCOPE_SYSTEM,
     SCOPE_TELEMETRY,
     SCOPE_TOOLS,
@@ -27,6 +28,7 @@ from ..models import (
     CollectionBundle,
     DiagnosticRecord,
     EvidenceRecord,
+    ReadinessRecord,
     RuntimePaths,
     SavedRunRecord,
 )
@@ -57,9 +59,9 @@ from ..sources import (
     wmi_source,
 )
 from ..sources.command_runner import CommandRunner
+from ..utils.formatting import sanitize_text
 from ..utils.paths import prepare_runtime_paths
 from ..utils.time_utils import filename_timestamp, iso_timestamp
-from ..utils.formatting import sanitize_text
 
 
 Collector = Callable[[CommandRunner, Path], CollectedSource]
@@ -92,6 +94,7 @@ SCOPE_SOURCES: dict[str, tuple[str, ...]] = {
     SCOPE_PROCESSES_SERVICES: ('processes', 'services'),
     SCOPE_TELEMETRY: ('nvidia', 'afterburner'),
     SCOPE_DIAGNOSTICS: ('wmi', 'network', 'dxdiag', 'nvidia', 'storage', 'registry', 'powercfg', 'software', 'processes', 'services', 'afterburner'),
+    SCOPE_SUMMARY: ('wmi', 'network', 'dxdiag', 'nvidia', 'registry', 'powercfg', 'software', 'afterburner'),
 }
 
 
@@ -172,6 +175,23 @@ def _get_snapshot(bundle: CollectionBundle, source_key: str) -> CollectedSource:
     return bundle.snapshots.get(source_key, CollectedSource())
 
 
+def _evidence_available(snapshot: CollectedSource, evidence_key: str | None = None) -> bool:
+    if evidence_key is not None:
+        evidence = snapshot.evidence.get(evidence_key)
+        return bool(evidence and evidence.availability != AVAILABILITY_UNAVAILABLE)
+    return any(item.availability != AVAILABILITY_UNAVAILABLE for item in snapshot.evidence.values())
+
+
+def _output_writable(project_root: Path) -> bool:
+    try:
+        with NamedTemporaryFile(mode='w', dir=project_root, prefix='gaming_audit_', suffix='.tmp', delete=True, encoding='utf-8') as handle:
+            handle.write('ok')
+            handle.flush()
+        return True
+    except OSError:
+        return False
+
+
 
 def collect_scope(project_root: Path, scope: str, persist_evidence: bool = False) -> CollectionBundle:
     if scope not in SCOPE_SOURCES:
@@ -199,6 +219,7 @@ def collect_scope(project_root: Path, scope: str, persist_evidence: bool = False
         _materialize_evidence_artifacts(runtime_paths.evidence_dir, bundle.evidence_records)
     bundle.diagnostics = _build_diagnostics(bundle.snapshots)
     return bundle
+
 
 
 def build_report(project_root: Path, collection_bundle: CollectionBundle) -> AuditReport:
@@ -256,6 +277,7 @@ def build_report(project_root: Path, collection_bundle: CollectionBundle) -> Aud
     )
 
 
+
 def save_full_audit(report: AuditReport, collection_bundle: CollectionBundle) -> None:
     runtime_paths = collection_bundle.runtime_paths
     if runtime_paths.text_report is None or runtime_paths.json_report is None or runtime_paths.latest_snapshot is None:
@@ -263,6 +285,7 @@ def save_full_audit(report: AuditReport, collection_bundle: CollectionBundle) ->
     write_text_report(report, runtime_paths.text_report)
     write_json_report(report, runtime_paths.json_report)
     write_json_report(report, runtime_paths.latest_snapshot)
+
 
 
 def run_full_audit(project_root: Path) -> AuditReport:
@@ -275,12 +298,31 @@ def run_full_audit(project_root: Path) -> AuditReport:
         bundle.cleanup()
 
 
+
 def run_audit(project_root: Path) -> AuditReport:
     return run_full_audit(project_root)
 
 
+
 def build_diagnostics(collection_bundle: CollectionBundle) -> list[DiagnosticRecord]:
     return list(collection_bundle.diagnostics)
+
+
+
+def build_readiness(project_root: Path) -> list[ReadinessRecord]:
+    runner = CommandRunner()
+    wmi_snapshot = wmi_source.collect(runner)
+    nvidia_snapshot = nvidia_source.collect(runner)
+    afterburner_snapshot = afterburner_source.collect()
+
+    readiness = [
+        ReadinessRecord('Core collectors', 'available' if _evidence_available(wmi_snapshot, 'operating_system') else 'unavailable'),
+        ReadinessRecord('nvidia-smi', 'available' if _evidence_available(nvidia_snapshot, 'nvidia_smi') else 'unavailable'),
+        ReadinessRecord('Afterburner', 'available' if _evidence_available(afterburner_snapshot, 'afterburner_shared_memory') else 'unavailable'),
+        ReadinessRecord('Saved output', 'writable' if _output_writable(project_root) else 'unwritable'),
+    ]
+    return readiness
+
 
 
 def list_saved_runs(project_root: Path, limit: int | None = None) -> list[SavedRunRecord]:
@@ -316,6 +358,7 @@ def list_saved_runs(project_root: Path, limit: int | None = None) -> list[SavedR
     return runs
 
 
+
 def resolve_latest_run_stamp(project_root: Path) -> str:
     runs = list_saved_runs(project_root, limit=1)
     if not runs:
@@ -323,12 +366,15 @@ def resolve_latest_run_stamp(project_root: Path) -> str:
     return runs[0].run_stamp
 
 
+
 def _saved_json_path(project_root: Path, run_stamp: str) -> Path:
     return project_root / 'reports' / 'json' / f'{REPORT_PREFIX}_{run_stamp}.json'
 
 
+
 def _saved_text_path(project_root: Path, run_stamp: str) -> Path:
     return project_root / 'reports' / 'txt' / f'{REPORT_PREFIX}_{run_stamp}.txt'
+
 
 
 def load_saved_report(project_root: Path, run_stamp: str) -> AuditReport:
@@ -337,6 +383,7 @@ def load_saved_report(project_root: Path, run_stamp: str) -> AuditReport:
         raise FileNotFoundError(f'Saved JSON report was not found for run {run_stamp}.')
     payload = json.loads(report_path.read_text(encoding='utf-8'))
     return AuditReport.from_dict(payload)
+
 
 
 def read_saved_report_content(project_root: Path, run_stamp: str, format_name: str) -> tuple[Path, str]:
@@ -352,12 +399,9 @@ def read_saved_report_content(project_root: Path, run_stamp: str, format_name: s
     return report_path, report_path.read_text(encoding='utf-8')
 
 
+
 def list_evidence_artifacts(project_root: Path, run_stamp: str) -> list[Path]:
     evidence_dir = project_root / 'evidence' / run_stamp
     if not evidence_dir.exists():
         raise FileNotFoundError(f'Evidence directory was not found for run {run_stamp}.')
     return sorted((path for path in evidence_dir.iterdir() if path.is_file()), key=lambda path: path.name.lower())
-
-
-
-

@@ -9,14 +9,15 @@ SRC_PATH = PROJECT_ROOT / 'src'
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from gaming_audit.models import AuditReport, MetricRecord
+from gaming_audit.models import AuditReport, MetricRecord, ReadinessRecord
 from gaming_audit.reporters.console_reporter import render_console_report
+from gaming_audit.reporters.summary_reporter import render_summary_text
 
 
-def make_metric(metric_id: str, label: str, display_value: str, raw_value, source_name: str) -> MetricRecord:
+def make_metric(metric_id: str, label: str, display_value: str, raw_value, source_name: str, section: str = 'Live Telemetry') -> MetricRecord:
     return MetricRecord(
         metric_id=metric_id,
-        section="Live Telemetry",
+        section=section,
         label=label,
         raw_value=raw_value,
         display_value=display_value,
@@ -47,15 +48,28 @@ def make_sample_report() -> AuditReport:
             "latest_snapshot_relative": r"snapshots\latest.json",
             "evidence_directory_relative": r"evidence\20260407_220000",
         },
-        system_metrics=[make_metric("cpu_name", "CPU Name", "AMD Ryzen 7 5800X3D", "AMD Ryzen 7 5800X3D", "WMI processor")],
-        graphics_metrics=[make_metric("nvidia_gpu_name", "NVIDIA GPU Name", "NVIDIA GeForce RTX 3070", "NVIDIA GeForce RTX 3070", "nvidia-smi")],
+        system_metrics=[
+            make_metric("windows_edition", "Windows Edition", "Windows 11 Home", "Windows 11 Home", "WMI", "System"),
+            make_metric("windows_version", "Windows Version", "24H2", "24H2", "WMI", "System"),
+            make_metric("windows_build_number", "Windows Build Number", "26200", "26200", "WMI", "System"),
+            make_metric("cpu_name", "CPU Name", "AMD Ryzen 7 5800X3D", "AMD Ryzen 7 5800X3D", "WMI processor", "System"),
+            make_metric("total_physical_memory_bytes", "Total Physical Memory", "31.91 GB", 34263000000, "WMI", "System"),
+        ],
+        graphics_metrics=[
+            make_metric("nvidia_gpu_name", "NVIDIA GPU Name", "NVIDIA GeForce RTX 3070", "NVIDIA GeForce RTX 3070", "nvidia-smi", "Graphics"),
+            make_metric("nvidia_driver_version", "GPU Driver Version", "595.97", "595.97", "nvidia-smi", "Graphics"),
+        ],
         display_metrics=[
-            make_metric("display_1_monitor_model", "Display 1 Monitor Model", "XB271HU", "XB271HU", "dxdiag"),
-            make_metric("display_1_active_resolution", "Display 1 Active Resolution", "2560 x 1440", "2560 x 1440", "dxdiag"),
-            make_metric("display_1_active_refresh_rate", "Display 1 Active Refresh Rate", "165 Hz", 165.0, "dxdiag"),
+            make_metric("display_1_monitor_model", "Display 1 Monitor Model", "XB271HU", "XB271HU", "dxdiag", "Displays"),
+            make_metric("display_1_active_resolution", "Display 1 Active Resolution", "2560 x 1440", "2560 x 1440", "dxdiag", "Displays"),
+            make_metric("display_1_active_refresh_rate", "Display 1 Active Refresh Rate", "165 Hz", 165.0, "dxdiag", "Displays"),
         ],
         storage_metrics=[],
-        settings_metrics=[],
+        settings_metrics=[
+            make_metric("active_power_scheme", "Active Power Plan", "Ultimate Performance", "Ultimate Performance", "powercfg", "Gaming Settings"),
+            make_metric("auto_game_mode_enabled", "Auto Game Mode Enabled", "Yes", True, "registry", "Gaming Settings"),
+            make_metric("game_dvr_enabled", "Game DVR Enabled", "No", False, "registry", "Gaming Settings"),
+        ],
         telemetry_metrics=telemetry_metrics,
         software_inventory=[],
         process_inventory=[],
@@ -77,13 +91,23 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("CPU1 temperature", output)
         self.assertNotIn("CPU2 temperature", output)
         self.assertIn("Additional Raw Telemetry [JSON]", output)
-        self.assertNotIn("PASS", output)
-        self.assertNotIn("WARN", output)
-        self.assertNotIn("FAIL", output)
-        self.assertNotIn("score", output.lower())
-        self.assertNotIn("final verdict", output.lower())
+
+    def test_summary_report_is_compact_and_high_signal(self) -> None:
+        output = render_summary_text(make_sample_report())
+        self.assertIn('PC Gaming Audit Summary', output)
+        self.assertIn('OS', output)
+        self.assertIn('CPU', output)
+        self.assertIn('GPU', output)
+        self.assertIn('Primary Display', output)
+        self.assertIn('Power Plan', output)
+        self.assertIn('Telemetry', output)
+        self.assertIn('GPU Temp', output)
+        self.assertIn('GPU Usage', output)
+        self.assertNotIn('Storage', output)
+        self.assertNotIn('Processes', output)
+        self.assertNotIn('Services', output)
+        self.assertLessEqual(len([line for line in output.splitlines() if line.strip()]), 12)
 
 
 if __name__ == "__main__":
     unittest.main()
-

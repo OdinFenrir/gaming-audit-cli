@@ -17,8 +17,12 @@ class CliActionRegistryTests(unittest.TestCase):
         menu_numbers = [action.menu_number for action in MENU_ACTIONS]
         self.assertEqual(len(menu_numbers), len(set(menu_numbers)))
 
+    def test_menu_selection_resolves_summary(self) -> None:
+        action = resolve_menu_selection('1')
+        self.assertEqual(action.key, 'summary')
+
     def test_menu_selection_resolves_processes_services(self) -> None:
-        action = resolve_menu_selection('8')
+        action = resolve_menu_selection('9')
         self.assertEqual(action.key, 'processes_services')
 
     def test_invalid_menu_selection_raises_value_error(self) -> None:

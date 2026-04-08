@@ -24,6 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit_parser = subparsers.add_parser('audit')
     audit_subparsers = audit_parser.add_subparsers(dest='audit_command', required=True)
     audit_subparsers.add_parser('full')
+    audit_subparsers.add_parser('summary')
     section_parser = audit_subparsers.add_parser('section')
     section_parser.add_argument('section', choices=sorted(SECTION_ACTION_KEYS.keys()))
 
@@ -60,6 +61,8 @@ def parse_args(argv: list[str]) -> ActionRequest:
     if namespace.command == 'audit':
         if namespace.audit_command == 'full':
             return ActionRequest(action_key='full_audit')
+        if namespace.audit_command == 'summary':
+            return ActionRequest(action_key='summary')
         return ActionRequest(action_key=SECTION_ACTION_KEYS[namespace.section])
     if namespace.command == 'reports':
         if namespace.reports_command == 'list':

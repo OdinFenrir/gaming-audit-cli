@@ -11,9 +11,9 @@ SRC_PATH = PROJECT_ROOT / 'src'
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from gaming_audit.constants import AVAILABILITY_AVAILABLE, SCOPE_DIAGNOSTICS, SCOPE_FULL, SCOPE_SYSTEM, SCOPE_TELEMETRY
-from gaming_audit.models import CollectedSource, EvidenceRecord, RuntimePaths, CollectionBundle
-from gaming_audit.services import build_diagnostics, build_report, collect_scope, list_saved_runs, read_saved_report_content, save_full_audit
+from gaming_audit.constants import AVAILABILITY_AVAILABLE, SCOPE_DIAGNOSTICS, SCOPE_FULL, SCOPE_SUMMARY, SCOPE_SYSTEM, SCOPE_TELEMETRY
+from gaming_audit.models import CollectedSource, CollectionBundle, EvidenceRecord
+from gaming_audit.services import build_diagnostics, build_readiness, build_report, collect_scope, list_saved_runs, read_saved_report_content, save_full_audit
 import gaming_audit.services.orchestrator as orchestrator
 
 
@@ -49,6 +49,18 @@ class OrchestratorServiceTests(unittest.TestCase):
                 bundle = collect_scope(project_root, SCOPE_SYSTEM, persist_evidence=False)
                 self.assertEqual(set(bundle.snapshots.keys()), {'wmi', 'network'})
                 self.assertEqual(called, ['wmi', 'network'])
+                self.assertFalse((project_root / 'reports').exists())
+                bundle.cleanup()
+
+    def test_collect_scope_uses_only_requested_summary_sources(self) -> None:
+        called: list[str] = []
+        collector_map = self._collector_map(called)
+        with TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            with patch.dict(orchestrator.SOURCE_COLLECTORS, collector_map, clear=True):
+                bundle = collect_scope(project_root, SCOPE_SUMMARY, persist_evidence=False)
+                self.assertEqual(set(bundle.snapshots.keys()), {'wmi', 'network', 'dxdiag', 'nvidia', 'registry', 'powercfg', 'software', 'afterburner'})
+                self.assertEqual(called, ['wmi', 'network', 'dxdiag', 'nvidia', 'registry', 'powercfg', 'software', 'afterburner'])
                 self.assertFalse((project_root / 'reports').exists())
                 bundle.cleanup()
 
@@ -101,7 +113,6 @@ class OrchestratorServiceTests(unittest.TestCase):
                 self.assertTrue(any(item.return_code == 0 for item in diagnostics))
                 bundle.cleanup()
 
-
     def test_build_report_sanitizes_user_paths_and_guids_in_metadata(self) -> None:
         with TemporaryDirectory() as temp_dir:
             project_root = Path(temp_dir) / 'Users' / 'ldomi' / 'repo'
@@ -117,9 +128,16 @@ class OrchestratorServiceTests(unittest.TestCase):
                 ),
             )
             report = build_report(project_root, bundle)
-            self.assertIn('[redacted]', report.metadata['project_root'])
-            self.assertIn('[redacted]', report.metadata['json_report'])
+            self.assertTrue('[redacted]' in report.metadata['project_root'] or '[redacted-path]' in report.metadata['project_root'])
+            self.assertTrue('[redacted]' in report.metadata['json_report'] or '[redacted-path]' in report.metadata['json_report'])
+
+    def test_build_readiness_returns_expected_labels(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            readiness = build_readiness(Path(temp_dir))
+        labels = [item.label for item in readiness]
+        self.assertEqual(labels, ['Core collectors', 'nvidia-smi', 'Afterburner', 'Saved output'])
+
+
 if __name__ == '__main__':
     unittest.main()
-
 

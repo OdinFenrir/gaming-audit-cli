@@ -13,9 +13,10 @@ from rich.text import Text
 from rich.theme import Theme
 
 from ..constants import APP_NAME
-from ..models import AuditReport, DiagnosticRecord, SavedRunRecord
+from ..models import AuditReport, DiagnosticRecord, ReadinessRecord, SavedRunRecord
+from ..reporters.summary_reporter import render_summary_text
 from ..reporters.view_data import build_section_rows
-from ..utils.formatting import format_bytes
+from ..utils.formatting import format_bytes, sanitize_text
 from .actions import MENU_ACTIONS
 
 
@@ -38,6 +39,8 @@ CLI_THEME = Theme(
         'status.unavailable': 'bold red',
         'status.running': 'bold green3',
         'status.stopped': 'bold yellow3',
+        'status.writable': 'bold green3',
+        'status.unwritable': 'bold red',
         'path': 'bright_black',
     }
 )
@@ -70,8 +73,16 @@ def _center(renderable) -> Align:
     return Align.center(renderable)
 
 
-def _banner(console: Console, title: str, subtitle: str, footer: str = '') -> Panel:
-    width = _content_width(console, 82, 60)
+def _menu_panel_width(console: Console) -> int:
+    return _content_width(console, 96, 68)
+
+
+def _report_panel_width(console: Console) -> int:
+    return _content_width(console, 96, 68)
+
+
+def _banner(console: Console, title: str, subtitle: str, footer: str = '', width: int | None = None) -> Panel:
+    panel_width = _menu_panel_width(console) if width is None else width
     body = Group(
         Text(title, style='app.title', justify='center'),
         Text(subtitle, style='app.subtitle', justify='center'),
@@ -83,8 +94,8 @@ def _banner(console: Console, title: str, subtitle: str, footer: str = '') -> Pa
         padding=(0, 1),
         subtitle=footer,
         subtitle_align='right',
-        expand=False,
-        width=width,
+        expand=True,
+        width=panel_width,
     )
 
 
@@ -94,8 +105,8 @@ def _footer_panel(console: Console, message: str) -> Panel:
         box=box.ROUNDED,
         border_style='panel.border',
         padding=(0, 1),
-        expand=False,
-        width=_content_width(console, 82, 60),
+        expand=True,
+        width=_menu_panel_width(console),
     )
 
 
@@ -110,6 +121,8 @@ def _style_inline_value(value: str) -> Text:
         ('Status=Stopped', 'status.stopped'),
         ('available', 'status.available'),
         ('unavailable', 'status.unavailable'),
+        ('writable', 'status.writable'),
+        ('unwritable', 'status.unavailable'),
     ]
     for token, style_name in replacements:
         start = 0
@@ -129,7 +142,7 @@ def _menu_table(console: Console, title: str, subtitle: str, actions: list) -> G
         expand=False,
         padding=(0, 1),
         row_styles=['', 'dim'],
-        width=_content_width(console, 96, 64),
+        width=_menu_panel_width(console),
     )
     table.add_column('#', style='menu.number', justify='center', width=4, no_wrap=True)
     table.add_column('Action', style='menu.title', width=22, no_wrap=False)
@@ -145,18 +158,34 @@ def _menu_table(console: Console, title: str, subtitle: str, actions: list) -> G
     )
 
 
+def _readiness_panel(console: Console, readiness: list[ReadinessRecord]) -> Panel:
+    grid = Table(show_header=False, box=None, expand=False, padding=(0, 1))
+    grid.add_column('Label', style='label', min_width=16)
+    grid.add_column('Value', style='value', min_width=12)
+    for item in readiness:
+        grid.add_row(Text(item.label, style='label'), _style_inline_value(item.status))
+    return Panel(
+        grid,
+        title=Text('Readiness', style='section.header'),
+        border_style='panel.border',
+        box=box.ROUNDED,
+        padding=(0, 1),
+        expand=True,
+        width=_menu_panel_width(console),
+    )
+
+
 def render_error(console: Console, title: str, message: str) -> None:
-    panel = Panel(Text(message, style='value'), title=title, border_style='red', box=box.HEAVY, padding=(0, 1), expand=False, width=_content_width(console, 76, 52))
+    panel = Panel(Text(message, style='value'), title=title, border_style='red', box=box.HEAVY, padding=(0, 1), expand=True, width=_menu_panel_width(console))
     console.print(_center(panel))
 
 
 def render_message(console: Console, title: str, message: str) -> None:
-    panel = Panel(Text(message, style='value'), title=title, border_style='panel.border', box=box.ROUNDED, padding=(0, 1), expand=False, width=_content_width(console, 76, 52))
+    panel = Panel(Text(message, style='value'), title=title, border_style='panel.border', box=box.ROUNDED, padding=(0, 1), expand=True, width=_menu_panel_width(console))
     console.print(_center(panel))
 
 
 def render_numeric_choices(console: Console, title: str, options: dict[int, str]) -> None:
-    width = _content_width(console, 52, 34)
     table = Table(
         title=title,
         title_style='section.header',
@@ -165,7 +194,7 @@ def render_numeric_choices(console: Console, title: str, options: dict[int, str]
         expand=False,
         padding=(0, 1),
         row_styles=['', 'dim'],
-        width=width,
+        width=_menu_panel_width(console),
     )
     table.add_column('#', style='menu.number', justify='center', width=4, no_wrap=True)
     table.add_column('Action', style='menu.title', min_width=18)
@@ -174,7 +203,7 @@ def render_numeric_choices(console: Console, title: str, options: dict[int, str]
     console.print(_center(table))
 
 
-def render_menu(console: Console) -> None:
+def render_menu(console: Console, readiness: list[ReadinessRecord] | None = None) -> None:
     console.print(
         _center(
             _banner(
@@ -186,14 +215,18 @@ def render_menu(console: Console) -> None:
         )
     )
 
-    audit_actions = [action for action in MENU_ACTIONS if action.menu_number and action.menu_number <= 9]
-    utility_actions = [action for action in MENU_ACTIONS if action.menu_number and action.menu_number >= 10]
+    if readiness:
+        console.print(_center(_readiness_panel(console, readiness)))
+        console.print()
+
+    audit_actions = [action for action in MENU_ACTIONS if action.menu_number and action.menu_number <= 10]
+    utility_actions = [action for action in MENU_ACTIONS if action.menu_number and action.menu_number >= 11]
 
     console.print(_menu_table(console, 'Audit Views', 'Live sections for the current machine.', audit_actions))
     console.print()
     console.print(_menu_table(console, 'Reports And Tools', 'Saved runs, evidence, and diagnostics.', utility_actions))
     console.print()
-    console.print(_center(_footer_panel(console, 'Type a number and press Enter. Direct commands still work.')))
+    console.print(_center(_footer_panel(console, 'Type a number and press Enter. Optional collectors degrade gracefully.')))
 
 
 def _report_header(console: Console, report: AuditReport, sections: tuple[str, ...]) -> Panel:
@@ -205,7 +238,7 @@ def _report_header(console: Console, report: AuditReport, sections: tuple[str, .
         Text('Read-only snapshot of raw system facts. No grading. No scoring.', style='app.subtitle', justify='center'),
         Text(f'Sections: {section_text}', style='panel.muted', justify='center'),
     )
-    return Panel(body, box=box.ROUNDED, border_style='panel.border', padding=(0, 1), subtitle=subtitle, subtitle_align='right', expand=False, width=_content_width(console, 88, 62))
+    return Panel(body, box=box.ROUNDED, border_style='panel.border', padding=(0, 1), subtitle=subtitle, subtitle_align='right', expand=True, width=_report_panel_width(console))
 
 
 def _render_section_table(console: Console, title: str, rows: list[tuple[str, str]]) -> None:
@@ -236,8 +269,8 @@ def _render_section_table(console: Console, title: str, rows: list[tuple[str, st
         border_style=SECTION_STYLES.get(title, 'panel.border'),
         box=box.ROUNDED,
         padding=(0, 1),
-        expand=False,
-        width=_content_width(console, 90, 62),
+        expand=True,
+        width=_report_panel_width(console),
     )
     console.print(_center(panel))
 
@@ -251,12 +284,16 @@ def render_report(console: Console, report: AuditReport, sections: tuple[str, ..
             _render_section_table(console, section_name, rows)
 
 
+def render_summary(console: Console, report: AuditReport) -> None:
+    console.print(render_summary_text(report))
+
+
 def render_saved_runs(console: Console, runs: list[SavedRunRecord], title: str) -> None:
     if not runs:
         render_message(console, title, 'No saved audit runs were found.')
         return
 
-    console.print(_center(_banner(console, title, 'Saved full-audit runs sorted newest first.', 'Use reports show <run_stamp> to open one directly')))
+    console.print(_center(_banner(console, title, 'Saved full-audit runs sorted newest first.', 'Use reports show <run_stamp> to open one directly', width=_menu_panel_width(console))))
     table = Table(
         box=box.SIMPLE_HEAVY,
         border_style='panel.border',
@@ -283,15 +320,15 @@ def render_saved_runs(console: Console, runs: list[SavedRunRecord], title: str) 
 
 
 def render_report_content(console: Console, path: str, format_name: str, content: str) -> None:
-    console.print(_center(_banner(console, f'Saved {format_name.upper()} Report', path, 'Loaded from disk')))
+    console.print(_center(_banner(console, f'Saved {format_name.upper()} Report', path, 'Loaded from disk', width=_report_panel_width(console))))
     if format_name == 'json':
         try:
             content = json.dumps(json.loads(content), indent=2)
         except json.JSONDecodeError:
             pass
-        console.print(_center(Panel(Syntax(content, 'json', word_wrap=True, line_numbers=True), border_style='panel.border', box=box.ROUNDED, padding=(0, 1), expand=False, width=_content_width(console, 96, 68))))
+        console.print(_center(Panel(Syntax(content, 'json', word_wrap=True, line_numbers=True), border_style='panel.border', box=box.ROUNDED, padding=(0, 1), expand=True, width=_report_panel_width(console))))
         return
-    console.print(_center(Panel(Text(content, style='value'), border_style='panel.border', box=box.ROUNDED, padding=(0, 1), expand=False, width=_content_width(console, 88, 62))))
+    console.print(_center(Panel(Text(content, style='value'), border_style='panel.border', box=box.ROUNDED, padding=(0, 1), expand=True, width=_report_panel_width(console))))
 
 
 def render_evidence_paths(console: Console, run_stamp: str, evidence_paths: list[str]) -> None:
@@ -299,7 +336,7 @@ def render_evidence_paths(console: Console, run_stamp: str, evidence_paths: list
         render_message(console, 'Evidence Browser', f'No evidence artifacts were found for run {run_stamp}.')
         return
 
-    console.print(_center(_banner(console, 'Evidence Browser', f'Raw artifacts for run {run_stamp}', 'Absolute paths are shown below')))
+    console.print(_center(_banner(console, 'Evidence Browser', f'Raw artifacts for run {run_stamp}', 'Sanitized paths are shown below')))
     table = Table(
         box=box.SIMPLE_HEAVY,
         border_style='panel.border',
@@ -311,11 +348,12 @@ def render_evidence_paths(console: Console, run_stamp: str, evidence_paths: list
     )
     table.add_column('File', style='menu.title', min_width=20)
     table.add_column('Size', style='value', width=12, justify='right')
-    table.add_column('Absolute Path', style='path', ratio=2, overflow='fold')
+    table.add_column('Path', style='path', ratio=2, overflow='fold')
     for raw_path in evidence_paths:
         path = Path(raw_path)
         size_value = format_bytes(path.stat().st_size) if path.exists() else 'Unavailable'
-        table.add_row(path.name, size_value, str(path))
+        display_path = sanitize_text(f'evidence\\{run_stamp}\\{path.name}')
+        table.add_row(path.name, size_value, str(display_path))
     console.print(_center(table))
 
 
@@ -341,7 +379,7 @@ def render_diagnostics(console: Console, diagnostics: list[DiagnosticRecord]) ->
     table.add_column('Command', style='value', ratio=2, overflow='fold')
     table.add_column('Error', style='value', ratio=1, overflow='fold')
     for item in diagnostics:
-        artifact_value = item.artifact_path or item.artifact_filename or ''
+        artifact_value = item.artifact_filename or ''
         availability_value = Text(item.availability)
         availability_style = 'status.available' if item.availability == 'available' else 'status.unavailable'
         availability_value.stylize(availability_style)
@@ -350,8 +388,8 @@ def render_diagnostics(console: Console, diagnostics: list[DiagnosticRecord]) ->
             availability_value,
             '' if item.return_code is None else str(item.return_code),
             artifact_value,
-            item.source_command,
-            item.stderr,
+            sanitize_text(item.source_command),
+            sanitize_text(item.stderr),
         )
     console.print(_center(table))
 

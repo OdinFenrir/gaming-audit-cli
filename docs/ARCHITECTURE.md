@@ -38,7 +38,9 @@ The CLI layer is responsible for command interpretation and presentation entry.
 - `gaming_audit.app.main` configures the process and handles top-level error presentation.
 - `cli.parser` converts raw arguments into an `ActionRequest`.
 - `cli.actions` defines the menu items, command hints, and scope mapping used by both interactive and direct command flows.
-- `cli.render` provides the Rich-based menu, report, saved-run, evidence, and diagnostics views.
+- `cli.render` provides the Rich-based menu, report, saved-run, evidence, diagnostics, and full-audit section views.
+
+The interactive menu keeps the numbered home screen as the main entry point. Inside that flow, `Full audit` opens a section-by-section viewer so the user can jump between sections or move forward and backward without relying on a single long terminal scroll.
 
 ### Orchestrator
 

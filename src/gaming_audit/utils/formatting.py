@@ -5,6 +5,8 @@ from typing import Any
 
 _USER_PATH_PATTERN = re.compile(r'(?i)\b([A-Z]:\\Users\\)([^\\\s]+)')
 _GUID_PATTERN = re.compile(r'(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b')
+_REDACTED_USER_APPDATA_PATTERN = re.compile(r'(?i)\b[A-Z]:\\Users\\\[redacted\]\\AppData(?:\\[^\\\s]+)*')
+_PROGRAM_FILES_PATH_PATTERN = re.compile(r'(?i)\b[A-Z]:\\Program Files(?: \(x86\))?(?:\\[^\\\r\n\t\|]+)+')
 
 
 def format_yes_no(value: bool | None) -> str:
@@ -48,6 +50,8 @@ def sanitize_text(value: Any) -> Any:
         return value
     masked = _USER_PATH_PATTERN.sub(r'\1[redacted]', value)
     masked = _GUID_PATTERN.sub('[redacted-guid]', masked)
+    masked = _REDACTED_USER_APPDATA_PATTERN.sub('[redacted-path]', masked)
+    masked = _PROGRAM_FILES_PATH_PATTERN.sub('[redacted-path]', masked)
     return masked
 
 
@@ -65,4 +69,3 @@ def format_display_value(value: Any, unit: str = "", unavailable_label: str = "U
     if not text:
         return unavailable_label
     return f"{text} {unit}".strip()
-

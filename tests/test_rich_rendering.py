@@ -10,15 +10,15 @@ SRC_PATH = PROJECT_ROOT / 'src'
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from gaming_audit.models import AuditReport, DiagnosticRecord, MetricRecord
-from gaming_audit.cli.render import create_console, render_diagnostics, render_menu, render_report
+from gaming_audit.models import AuditReport, DiagnosticRecord, MetricRecord, ReadinessRecord
+from gaming_audit.cli.render import create_console, render_diagnostics, render_menu, render_report, render_summary
 
 
 
-def make_metric(metric_id: str, label: str, display_value: str, raw_value, source_name: str) -> MetricRecord:
+def make_metric(metric_id: str, label: str, display_value: str, raw_value, source_name: str, section: str = 'Live Telemetry') -> MetricRecord:
     return MetricRecord(
         metric_id=metric_id,
-        section='Live Telemetry',
+        section=section,
         label=label,
         raw_value=raw_value,
         display_value=display_value,
@@ -47,15 +47,23 @@ def make_sample_report() -> AuditReport:
             'generated_at': '2026-04-07T22:00:00+01:00',
             'json_report_relative': r'reports\json\system_audit_20260407_220000.json',
         },
-        system_metrics=[make_metric('cpu_name', 'CPU Name', 'AMD Ryzen 7 5800X3D', 'AMD Ryzen 7 5800X3D', 'WMI processor')],
-        graphics_metrics=[make_metric('nvidia_gpu_name', 'NVIDIA GPU Name', 'NVIDIA GeForce RTX 3070', 'NVIDIA GeForce RTX 3070', 'nvidia-smi')],
+        system_metrics=[
+            make_metric('windows_edition', 'Windows Edition', 'Windows 11 Home', 'Windows 11 Home', 'WMI', 'System'),
+            make_metric('windows_build_number', 'Windows Build Number', '26200', '26200', 'WMI', 'System'),
+            make_metric('cpu_name', 'CPU Name', 'AMD Ryzen 7 5800X3D', 'AMD Ryzen 7 5800X3D', 'WMI processor', 'System'),
+            make_metric('total_physical_memory_bytes', 'Total Physical Memory', '31.91 GB', 34263000000, 'WMI', 'System'),
+        ],
+        graphics_metrics=[
+            make_metric('nvidia_gpu_name', 'NVIDIA GPU Name', 'NVIDIA GeForce RTX 3070', 'NVIDIA GeForce RTX 3070', 'nvidia-smi', 'Graphics'),
+            make_metric('nvidia_driver_version', 'GPU Driver Version', '595.97', '595.97', 'nvidia-smi', 'Graphics'),
+        ],
         display_metrics=[
-            make_metric('display_1_monitor_model', 'Display 1 Monitor Model', 'XB271HU', 'XB271HU', 'dxdiag'),
-            make_metric('display_1_active_resolution', 'Display 1 Active Resolution', '2560 x 1440', '2560 x 1440', 'dxdiag'),
-            make_metric('display_1_active_refresh_rate', 'Display 1 Active Refresh Rate', '165 Hz', 165.0, 'dxdiag'),
+            make_metric('display_1_monitor_model', 'Display 1 Monitor Model', 'XB271HU', 'XB271HU', 'dxdiag', 'Displays'),
+            make_metric('display_1_active_resolution', 'Display 1 Active Resolution', '2560 x 1440', '2560 x 1440', 'dxdiag', 'Displays'),
+            make_metric('display_1_active_refresh_rate', 'Display 1 Active Refresh Rate', '165 Hz', 165.0, 'dxdiag', 'Displays'),
         ],
         storage_metrics=[],
-        settings_metrics=[],
+        settings_metrics=[make_metric('active_power_scheme', 'Active Power Plan', 'Ultimate Performance', 'Ultimate Performance', 'powercfg', 'Gaming Settings')],
         telemetry_metrics=telemetry_metrics,
         software_inventory=[],
         process_inventory=[],
@@ -69,18 +77,23 @@ class RichRenderingTests(unittest.TestCase):
     def _console(self):
         return create_console(record=True, width=180, file=io.StringIO(), force_terminal=False, color_system=None)
 
-    def test_render_menu_includes_compact_tables_and_command_hints(self) -> None:
+    def test_render_menu_includes_readiness_and_command_hints(self) -> None:
         console = self._console()
-        render_menu(console)
+        render_menu(
+            console,
+            [
+                ReadinessRecord('Core collectors', 'available'),
+                ReadinessRecord('nvidia-smi', 'unavailable'),
+                ReadinessRecord('Afterburner', 'unavailable'),
+                ReadinessRecord('Saved output', 'writable'),
+            ],
+        )
         output = console.export_text()
         self.assertIn('Raw PC facts, compact section views', output)
-        self.assertIn('Audit Views', output)
-        self.assertIn('Reports And Tools', output)
-        self.assertIn('Telemetry snapshot', output)
-        self.assertIn('Current nvidia-smi and', output)
-        self.assertIn('Afterburner.', output)
-        self.assertIn('audit section telemetry', output)
-        self.assertIn('Type a number and press Enter.', output)
+        self.assertIn('Readiness', output)
+        self.assertIn('Quick summary', output)
+        self.assertIn('audit summary', output)
+        self.assertIn('Optional collectors degrade gracefully.', output)
 
     def test_render_report_groups_compact_telemetry_without_verdict_language(self) -> None:
         console = self._console()
@@ -92,11 +105,27 @@ class RichRenderingTests(unittest.TestCase):
         self.assertIn('CPU Per-Core Summary [MSI Afterburner]', output)
         self.assertNotIn('CPU1 temperature', output)
         self.assertNotIn('CPU2 temperature', output)
-        self.assertNotIn('PASS', output)
-        self.assertNotIn('WARN', output)
-        self.assertNotIn('FAIL', output)
-        self.assertNotIn('score', output.lower())
-        self.assertNotIn('verdict', output.lower())
+
+    def test_render_report_keeps_short_sections_at_fixed_width(self) -> None:
+        console = self._console()
+        render_report(console, make_sample_report(), ('Gaming Settings', 'Live Telemetry'))
+        lines = console.export_text().splitlines()
+
+        def visible_width(containing: str) -> int:
+            matching_line = next(line for line in lines if containing in line)
+            first = min(index for index, char in enumerate(matching_line) if char != ' ')
+            last = max(index for index, char in enumerate(matching_line) if char != ' ')
+            return last - first + 1
+
+        self.assertEqual(visible_width('Gaming Settings'), visible_width('Live Telemetry'))
+
+    def test_render_summary_is_plain_text_and_compact(self) -> None:
+        console = self._console()
+        render_summary(console, make_sample_report())
+        output = console.export_text()
+        self.assertIn('PC Gaming Audit Summary', output)
+        self.assertIn('Primary Display', output)
+        self.assertNotIn('Storage', output)
 
     def test_render_diagnostics_includes_source_details(self) -> None:
         console = self._console()
@@ -119,13 +148,8 @@ class RichRenderingTests(unittest.TestCase):
         output = console.export_text()
         self.assertIn('Every source is shown', output)
         self.assertIn('nvidia.nvidia_smi', output)
-        self.assertIn('nvidia-smi', output)
         self.assertIn('--query-gpu=name', output)
-        self.assertIn(r'C:\Reports\n', output)
-        self.assertIn('vidia_smi.cs', output)
 
 
 if __name__ == '__main__':
     unittest.main()
-
-

@@ -12,6 +12,11 @@ dependencies = [
   "rich>=14.3.3",
 ]
 
+[project.optional-dependencies]
+build = [
+  "pyinstaller>=6.0",
+]
+
 [project.scripts]
 gaming-audit = "gaming_audit.__main__:main"
 

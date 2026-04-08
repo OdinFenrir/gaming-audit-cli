@@ -12,6 +12,7 @@ from .render import (
     render_report,
     render_report_content,
     render_saved_runs,
+    render_summary,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     'render_report',
     'render_report_content',
     'render_saved_runs',
+    'render_summary',
     'resolve_menu_selection',
     'run_from_argv',
     'run_menu',

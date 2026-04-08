@@ -11,6 +11,7 @@ from ..constants import (
     SCOPE_SERVICES,
     SCOPE_SETTINGS,
     SCOPE_STORAGE,
+    SCOPE_SUMMARY,
     SCOPE_SYSTEM,
     SCOPE_TELEMETRY,
     SCOPE_TOOLS,
@@ -38,9 +39,17 @@ class ActionRequest:
 
 
 ACTION_DEFINITIONS = {
+    'summary': ActionDefinition(
+        'summary',
+        1,
+        'Quick summary',
+        'Compact copy-pasteable gaming snapshot.',
+        'audit summary',
+        SCOPE_SUMMARY,
+    ),
     'full_audit': ActionDefinition(
         'full_audit',
-        1,
+        2,
         'Full audit',
         'Save the full snapshot and evidence.',
         'audit full',
@@ -49,7 +58,7 @@ ACTION_DEFINITIONS = {
     ),
     'system': ActionDefinition(
         'system',
-        2,
+        3,
         'System',
         'Windows, CPU, memory, network, audio.',
         'audit section system',
@@ -58,7 +67,7 @@ ACTION_DEFINITIONS = {
     ),
     'graphics': ActionDefinition(
         'graphics',
-        3,
+        4,
         'Graphics',
         'GPU, driver, DirectX, WDDM, VRAM.',
         'audit section graphics',
@@ -67,7 +76,7 @@ ACTION_DEFINITIONS = {
     ),
     'displays': ActionDefinition(
         'displays',
-        4,
+        5,
         'Displays',
         'Screens, modes, HDR, color space.',
         'audit section displays',
@@ -76,7 +85,7 @@ ACTION_DEFINITIONS = {
     ),
     'storage': ActionDefinition(
         'storage',
-        5,
+        6,
         'Storage',
         'Disks, health, volumes, free space.',
         'audit section storage',
@@ -85,7 +94,7 @@ ACTION_DEFINITIONS = {
     ),
     'settings': ActionDefinition(
         'settings',
-        6,
+        7,
         'Gaming settings',
         'Power plan, Game DVR, Game Mode.',
         'audit section settings',
@@ -94,7 +103,7 @@ ACTION_DEFINITIONS = {
     ),
     'tools': ActionDefinition(
         'tools',
-        7,
+        8,
         'Performance tools',
         'Monitoring tools and runtimes.',
         'audit section tools',
@@ -103,7 +112,7 @@ ACTION_DEFINITIONS = {
     ),
     'processes_services': ActionDefinition(
         'processes_services',
-        8,
+        9,
         'Processes and services',
         'Helper processes and services.',
         'audit section proc-svc',
@@ -112,7 +121,7 @@ ACTION_DEFINITIONS = {
     ),
     'telemetry': ActionDefinition(
         'telemetry',
-        9,
+        10,
         'Telemetry snapshot',
         'Current nvidia-smi and Afterburner.',
         'audit section telemetry',
@@ -121,28 +130,28 @@ ACTION_DEFINITIONS = {
     ),
     'recent_reports': ActionDefinition(
         'recent_reports',
-        10,
+        11,
         'Recent reports',
         'Browse saved runs.',
         'reports list --limit 8',
     ),
     'evidence_browser': ActionDefinition(
         'evidence_browser',
-        11,
+        12,
         'Evidence browser',
         'Collector artifacts by run.',
         'evidence list --latest',
     ),
     'diagnostics': ActionDefinition(
         'diagnostics',
-        12,
+        13,
         'Diagnostics',
         'Commands, files, codes, errors.',
         'diagnostics',
     ),
     'exit': ActionDefinition(
         'exit',
-        13,
+        14,
         'Exit',
         'Close the menu.',
     ),
@@ -174,6 +183,7 @@ ACTION_DEFINITIONS = {
 MENU_ACTIONS = tuple(
     ACTION_DEFINITIONS[key]
     for key in (
+        'summary',
         'full_audit',
         'system',
         'graphics',

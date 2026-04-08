@@ -1,6 +1,8 @@
 reports/
 snapshots/
 evidence/
+build/
+dist/
 src/gaming_readiness_audit.egg-info/
 __pycache__/
 *.py[cod]

@@ -40,21 +40,57 @@ The goal is faster, safer context gathering - not automated decision-making.
 
 ### Menu
 
-![CLI Menu](screenshots/menu.svg)
+![CLI Menu](screenshots/menu.png)
 
-### Recent Reports
+### Full Audit Section Viewer
 
-![Recent Reports](screenshots/recent-reports.svg)
+![Full Audit Section Viewer](screenshots/full-audit-services.png)
 
-Rich-generated SVG screenshots are the canonical preview assets.
+### Evidence Browser
+
+![Evidence Browser](screenshots/evidence-browser.png)
+
+The repository preview assets are captured from the current Windows executable so the screenshots match the shipped interface.
 
 ## Installation
+
+### Windows executable
+
+Download `gaming-audit.exe` from the repo releases and run it on Windows 11.
+
+Examples:
+
+```powershell
+.\gaming-audit.exe
+.\gaming-audit.exe audit summary
+.\gaming-audit.exe audit full
+```
+
+The executable uses the current working directory for `reports/`, `snapshots/`, and `evidence/`.
+
+### Source install
 
 ```powershell
 git clone https://github.com/OdinFenrir/gaming-audit-cli
 cd gaming-audit-cli
 python -m pip install -e .
 ```
+
+### Build the Windows executable
+
+```powershell
+python -m pip install -e .[build]
+powershell -ExecutionPolicy Bypass -File .\scripts\build_windows_exe.ps1
+```
+
+## Compatibility
+
+- Windows 11 is the target platform
+- Python 3.11+ is required only for source installs
+- core audit collection works without NVIDIA or MSI Afterburner
+- `nvidia-smi` telemetry is optional
+- MSI Afterburner shared-memory telemetry is optional
+- missing optional collectors are reported as unavailable rather than treated as fatal
 
 ## Quick Start
 
@@ -64,6 +100,12 @@ Run the interactive menu:
 
 ```powershell
 python run_audit.py
+```
+
+Run a compact summary:
+
+```powershell
+python run_audit.py audit summary
 ```
 
 Run a full saved audit:
@@ -77,6 +119,7 @@ python run_audit.py audit full
 After an editable install:
 
 ```powershell
+gaming-audit audit summary
 gaming-audit audit full
 ```
 
@@ -85,6 +128,7 @@ gaming-audit audit full
 ### Primary usage
 
 ```powershell
+python run_audit.py audit summary
 python run_audit.py audit full
 python run_audit.py audit section system
 python run_audit.py audit section graphics
@@ -103,6 +147,7 @@ python run_audit.py diagnostics
 ### Optional (installed entrypoint)
 
 ```powershell
+gaming-audit audit summary
 gaming-audit audit full
 gaming-audit reports list --limit 8
 ```
@@ -142,6 +187,23 @@ Redacted or masked values include:
 - DxDiag machine name and machine ID
 
 Sanitization preserves diagnostic usefulness while removing common sources of system fingerprinting.
+
+## Example compact summary
+
+```text
+PC Gaming Audit Summary
+OS              : Windows 11 Home | Version 24H2 | Build 26200
+CPU             : AMD Ryzen 7 5800X3D
+GPU             : NVIDIA GeForce RTX 3070 | Driver 595.97
+Primary Display : XB271HU | 2560 x 1440 | 165 Hz
+RAM             : 31.91 GB
+Power Plan      : Ultimate Performance
+Game Mode       : Yes
+Telemetry       : nvidia-smi, MSI Afterburner Shared Memory
+GPU Temp        : 54
+GPU Usage       : 12 %
+Notes           : Optional telemetry may be limited on some systems
+```
 
 ## Example sanitized output
 
@@ -189,16 +251,19 @@ The repository ignores generated runtime output by default:
 - `reports/`
 - `snapshots/`
 - `evidence/`
+- `build/`
+- `dist/`
 
 Recommended workflow:
 
 - share sanitized TXT or JSON reports when you need machine context for debugging
+- use `audit summary` for fast AI or support-chat context
 - review evidence artifacts before sharing them
 - keep local runtime outputs out of Git
 
 ## Screenshot policy
 
-SVG screenshots are the canonical presentation assets.
+Windows PNG screenshots captured from the current executable are the canonical presentation assets.
 
 ## Architecture
 
@@ -207,6 +272,3 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an engineering overview of 
 ## GitHub description
 
 Privacy-aware Windows gaming audit CLI with sanitized reports, live telemetry, and evidence capture.
-
-
-

@@ -14,6 +14,7 @@ SECTION_PROCESSES = "Processes"
 SECTION_SERVICES = "Services"
 SECTION_TELEMETRY = "Live Telemetry"
 SECTION_UNAVAILABLE = "Unavailable Metrics"
+SECTION_SUMMARY = "Summary"
 
 SECTION_ORDER = [
     SECTION_OVERVIEW,
@@ -41,6 +42,7 @@ SCOPE_SERVICES = "services"
 SCOPE_PROCESSES_SERVICES = "processes_services"
 SCOPE_TELEMETRY = "telemetry"
 SCOPE_DIAGNOSTICS = "diagnostics"
+SCOPE_SUMMARY = "summary"
 
 AVAILABILITY_AVAILABLE = "available"
 AVAILABILITY_UNAVAILABLE = "unavailable"

@@ -22,6 +22,10 @@ class CliParserTests(unittest.TestCase):
         request = parse_args(['audit', 'full'])
         self.assertEqual(request.action_key, 'full_audit')
 
+    def test_audit_summary_maps_to_summary_action(self) -> None:
+        request = parse_args(['audit', 'summary'])
+        self.assertEqual(request.action_key, 'summary')
+
     def test_audit_section_telemetry_maps_to_telemetry_action(self) -> None:
         request = parse_args(['audit', 'section', 'telemetry'])
         self.assertEqual(request.action_key, 'telemetry')

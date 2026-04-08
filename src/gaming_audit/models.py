@@ -160,6 +160,12 @@ class SavedRunRecord:
 
 
 @dataclass(slots=True)
+class ReadinessRecord:
+    label: str
+    status: str
+
+
+@dataclass(slots=True)
 class RuntimePaths:
     evidence_dir: Path | None = None
     text_report: Path | None = None
@@ -235,4 +241,3 @@ class AuditReport:
             unavailable_metrics=[MetricRecord.from_dict(item) for item in payload.get("unavailable_metrics", [])],
             evidence_records=[],
         )
-
